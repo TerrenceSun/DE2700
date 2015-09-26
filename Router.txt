@@ -1,0 +1,219 @@
+### 1. enable IP forwarding ###
+enable below lines
+```
+net.ipv4.ip_forward=1
+net.ipv4.tcp_syncookies=1
+net.ipv4.conf.all.accept_source_route=0
+#added for packet loss
+net.ipv4.tcp_frto=1
+net.ipv4.tcp_low_latency=1
+```
+
+### 2. install dnsmasq ###
+sudo apt-get install dnsmasq
+sudo cp /etc/dnsmasq.conf /etc/dnsmasq.d/eth1.conf
+
+edit like below
+```
+domain-needed
+bogus-priv
+local=/localnet/
+expand-hosts
+domain=localnet
+interface=eth1
+listen-address=127.0.0.1
+dhcp-range=192.168.2.100,192.168.2.150,12h
+dhcp-lease-max=100
+```
+
+disable auto start of bind9
+sudo update-rc.d -f bind9 disable
+
+### 3. config eth1 ###
+edit /etc/network/interfaces.d/eth1 as below
+```
+auto eth1
+iface eth1 inet static
+address         192.168.2.1
+netmask         255.255.255.0
+network         192.168.2.0
+broadcast       192.168.2.255
+```
+
+### 4. set up firewall ###
+add firewall rules for router
+edit /etc/rc.local
+```
+#!/bin/sh
+#
+# iptables firewall script for sharing
+# broadband Internet, with no public services
+#
+# From Linux Networking Cookbook, by Carla Schroder, O'Reilly, 2007
+#
+# NOTE!!! Forwarding will not work unless
+# /proc/sys/net/ipv4/ip_forward == '1'
+# preferably set not here but through /etc/sysctl.conf
+
+# define variables
+ipt="/sbin/iptables"
+mod="/sbin/modprobe"
+WAN_IFACE="eth0"
+LAN_IFACE="eth1"
+
+#basic set of kernel modules
+$mod ip_tables  # now compiled into kernel as of f10
+$mod ip_conntrack  # now compiled into kernel as of f10 
+$mod iptable_filter  # now compiled into kernel as of f10 
+$mod iptable_nat
+$mod iptable_mangle
+$mod ipt_LOG
+$mod ipt_limit
+$mod ipt_state  # now compiled into kernel as of f10 
+$mod ipt_MASQUERADE
+
+#add these for IRC and FTP
+$mod ip_nat_ftp
+$mod ip_nat_irc
+$mod ip_conntrack_ftp
+$mod ip_conntrack_irc
+
+# Flush all active rules and delete all custom chains
+$ipt -F
+$ipt -t nat -F
+$ipt -t mangle -F
+$ipt -X
+$ipt -t nat -X
+$ipt -t mangle -X
+
+#Set default policies
+$ipt -P INPUT DROP
+$ipt -P FORWARD DROP
+$ipt -P OUTPUT ACCEPT
+$ipt -t nat -P OUTPUT ACCEPT
+$ipt -t nat -P PREROUTING ACCEPT
+$ipt -t nat -P POSTROUTING ACCEPT
+$ipt -t mangle -P PREROUTING ACCEPT
+$ipt -t mangle -P POSTROUTING ACCEPT
+
+#this line is necessary for the loopback interface
+#and internal socket-based services to work correctly
+$ipt -A INPUT -i lo -j ACCEPT
+
+#Enable IP masquerading
+$ipt -t nat -A POSTROUTING -o $WAN_IFACE -j MASQUERADE
+
+#Enable unrestricted outgoing traffic, incoming
+#is restricted to locally-initiated sessions only
+$ipt -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+$ipt -A FORWARD -i $WAN_IFACE -o $LAN_IFACE -m state --state ESTABLISHED,RELATED -j ACCEPT
+$ipt -A FORWARD -i $LAN_IFACE -o $WAN_IFACE -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+
+# Allow ssh access from LAN, but not WAN
+$ipt -A INPUT -i $LAN_IFACE -p tcp -s 192.168.2.0/24 --dport 22 --syn -m state --state NEW -j ACCEPT
+
+# Allow DNS access from LAN
+$ipt -A INPUT -i $LAN_IFACE -p udp -s 192.168.2.0/24 --dport 53 -j ACCEPT
+$ipt -A INPUT -i $LAN_IFACE -p tcp -s 192.168.2.0/24 --dport 53 -j ACCEPT
+
+# Allow DHCP access from LAN
+$ipt -A INPUT -i $LAN_IFACE -p udp --dport 67 -j ACCEPT
+$ipt -A INPUT -i $LAN_IFACE -p udp --dport 68 -j ACCEPT
+
+
+# Accept important ICMP messages
+$ipt -A INPUT -p icmp --icmp-type echo-request  -j ACCEPT
+$ipt -A INPUT -p icmp --icmp-type time-exceeded -j ACCEPT
+$ipt -A INPUT -p icmp --icmp-type destination-unreachable -j ACCEPT
+
+#Reject connection attempts not initiated from inside the LAN
+$ipt -A INPUT -p tcp --syn -j DROP
+# XXX: what about dropping unwanted UDP?
+```
+sudo chmod +x /etc/iptables_nat_router.sh
+
+### 5. set up PPPoE for eth0###
+sudo pppoeconf eth0
+
+# file  /etc/ppp/peers/dsl-provider will be generated
+# poff
+# pon dsl-provider
+# plog
+```
+demand
+idle 300
+```
+
+#Add pppoe dial up with eth0
+edit /etc/network/interfaces.d/eth0
+```
+auto eth0
+iface eth0 inet ppp
+        pre-up /sbin/ip link set dev eth0 up
+        provider dsl-provider
+        post-down /sbin/ip link set dev eth0 down
+```
+
+### 6. set up bridge ###
+sudo apt-get install bridge-utils
+
+
+### 7. set up hostpad ###
+sudo apt-get install hostapd
+zcat /usr/share/doc/hostapd/examples/hostapd.conf.gz | sudo tee -a   /etc/hostapd/hostapd.conf
+
+iw list
+```
+                Capabilities: 0x11ce
+                        HT20/HT40
+                        SM Power Save disabled
+                        RX HT40 SGI
+                        TX STBC
+                        RX STBC 1-stream
+                        Max AMSDU length: 3839 bytes
+                        DSSS/CCK HT40
+```
+
+edit /etc/hostapd/hostapd.conf
+```
+interface=wlan0
+ssid=Example-WLAN
+hw_mode=g
+wpa=2
+wpa_passphrase=PASS
+wpa_key_mgmt=WPA-PSK WPA-EAP
+wpa_pairwise=TKIP CCMP
+ieee80211n=1
+wmm_enable=1
+ht_capab=[HT40-][SHORT-GI-40][TX-STBC][RX-STBC1][DSSS_CCK-40]
+```
+
+edit /etc/network/interfaces.d/wlan0
+```
+iface wlan0 inet manual
+	hostapd /etc/hostapd/hostapd.conf
+```
+
+edit /etc/network/interfaces.d/eth1
+```
+auto br0
+iface br0 inet static
+        address         192.168.2.1
+        netmask         255.255.255.0
+        network         192.168.2.0
+        broadcast       192.168.2.255
+        bridge-ports    eth1
+	post-up		ifup wlan0
+	pre-down	ifdown wlan0
+```
+
+edit /etc/dnsmasq.d/eth1.conf
+```
+interface=br0
+```
+
+edit /etc/iptables_nat_router.sh
+```
+LAN_IFACE="br0"
+```
+

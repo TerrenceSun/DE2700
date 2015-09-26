@@ -1,0 +1,78 @@
+### 1. fail2ban ###
+sudo apt-get install fail2ban
+
+
+### 2. python-pip ###
+sudo apt-get install python-pip
+
+
+### 3. shadowsocks ###
+sudo pip install shadowsocks
+
+edit the json /etc/shadowsocks.json
+```
+{
+        "server":"SERVERIP",
+        "server_port":3389,
+        "local_address":"127.0.0.1",
+        "local_port":1088,
+        "password":"PASSWORD",
+        "timeout":300,
+        "method":"aes-256-cfb",
+        "fast_open":false
+}
+```
+edit the json /etc/shadowsocks_obfs.json
+```
+{
+        "server":"127.0.0.1",
+        "server_port":6689,
+        "local_address":"127.0.0.1",
+        "local_port":1088,
+        "password":"PASSWORD",
+        "timeout":300,
+        "method":"aes-256-cfb",
+        "fast_open":false
+}
+```
+ss-local -c /etc/shadowsocks_obfs.json
+ss-tunnel -c /etc/shadowsocks.json -u -b 127.0.0.1 -l 5300 -L 8.8.8.8:53
+
+### 4. obfsproxy ###
+sudo apt-get install python-dev
+python setup.py install
+
+obfsproxy --log-min-severity=debug scramblesuit --password=PASSWORD --dest=SERVERIP:3390 client 127.0.0.1:6689
+
+obfsproxy scramblesuit --password=PASSWORD --dest=SERVERIP:3322 client 192.168.2.1:6622 &
+
+### 5. redsocks ###
+sudo apt-get install redsocks
+edit /etc/redsocks.conf
+
+listen on 1080, pass net to 6666
+
+### 6. ipset ###
+sudo apt-get install ipset
+# create a name
+ipset -N letitgo iphash
+
+# update iptables
+# open ports
+$ipt -A INPUT -i $LAN_IFACE -p tcp -s 192.168.2.0/24 --match multiport --dports 1088,6666,5300 --syn -m state --state NEW -j ACCEPT
+# for ipset
+iptables -t nat -A PREROUTING -p tcp -m set --match-set letitgo dst -j REDIRECT --to-port 6666
+iptables -t nat -A OUTPUT -p tcp -m set --match-set letitgo dst -j REDIRECT --to-port 6666
+
+# update dnsmasq
+edit /etc/dnsmasq.d/letitgo.conf
+add server for dns
+add ipset for ipset
+
+
+# update iptables-persistent
+edit /usr/share/netfilter-persistent/plugins.d/15-ip4tables
+		ipset -L letitgo >/dev/null 2>&1
+		if [ $? -ne 0 ]; then
+			ipset -N letitgo iphash
+		fi

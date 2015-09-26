@@ -1,0 +1,25 @@
+### 1. Install dnscrypt-wrapper in server side ###
+sudo add-apt-repository ppa:shnatsel/dnscrypt
+sudo apt-get update
+sudo apt-get install libsodium4 libsodium-dev
+
+follow https://github.com/Cofyc/dnscrypt-wrapper
+
+dnscrypt-wrapper --resolver-address=8.8.8.8:53 --listen-address=0.0.0.0:3353 --provider-name=2 dnscrypt-cert.test.com --crypt-secretkey-file=1.key --provider-cert-file=1.cert
+
+### 2. Install dnscrypt in client side ###
+sudo add-apt-repository ppa:anton+/dnscrypt
+sudo apt-get update
+sudo apt-get install dnscrypt-proxy
+
+# edit /lib/systemd/system/dnscrypt-proxy-resolvconf.service
+# edit /lib/systemd/system/dnscrypt-proxy.service
+for fix of start error and change command arguments to below:
+```
+/usr/sbin/dnscrypt-proxy --local-address=127.0.0.1:5301 --resolver-address=SERVERIP:3353 --provider-name=2.dnscrypt-cert.test.com --provider-key=FINGERPRINT
+```
+
+# edit /lib/systemd/system/dnscrypt-proxy.socket for listen address
+
+# disable resolver update
+sudo systemctl disable dnscrypt-proxy-resolvconf.service

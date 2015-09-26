@@ -1,0 +1,16 @@
+### 1. install wpa supplicant for WPA and WPA2 ###
+sudo apt-get install wpasupplicant
+
+### 2. edit wpa_supplicant.conf ###
+add new line at the top.
+ctrl_interface=/var/run/wpa_supplicant
+
+### 3. add a password config for your connection ###
+sudo 'wpa_passphrase SSID_NAME PASSWORD >> /etc/wpa_supplicant.conf'
+
+### 4. test the connection ###
+sudo wpa_supplicant -D wext -i wlan0 -c /etc/wpa_supplicant.conf -B
+
+### 5. connection at boot ###
+sudo 'echo "pre-up wpa_supplicant -D wext -i wlan0 -c /etc/wpa_supplicant.conf -B" >> /etc/netowk/interfaces.d/wlan0'
+sudo 'echo "post-down killall -q wpa_supplicant" >> /etc/netowk/interfaces.d/wlan0'

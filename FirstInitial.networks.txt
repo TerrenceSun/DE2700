@@ -1,0 +1,55 @@
+#### 1. Install package for network driver building ###
+1. mount iso image into /media/cdrom
+sudo mount -t iso9660 ~/ISO/ubuntu-15.04-server-i386.iso /media/cdrom
+
+2. add cdrom into apt-get source list
+apt-cdrom add -d /media/cdrom
+
+3. install build-essential
+apt-get install build-essential
+
+#### 2. Download and compile the driver ###
+1. get source code
+Select and dowload the source code from
+http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PNid=13&PFid=5&Level=5&Conn=4&DownTypeID=3
+
+2. make and install
+sudo make clean modules
+sudo make install
+
+#### 3. Install the driver for kernel ###
+1. remove r8169
+sudo rmmod r8169
+sudo mv /lib/modules/`uname -r`/kernel/drivers/net/ethernet/realtek/r8169.ko ~/Backup/
+
+2. install r8168
+sudo depmod -a
+sudo insmod ./src/r8168.ko
+
+3. create a new initrd
+sudo mv /boot/initrd.img ~/Backup/
+sudo mkinitramfs -o /boot/initrd.img-`uname -r`
+
+4. load r8168 at boot
+sudo 'echo "r8168" >> /etc/modules'
+
+### 4. Reboot and check ###
+sudo lspci -v
+
+03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 03)
+        Subsystem: AOPEN Inc. Device 0700
+        Flags: bus master, fast devsel, latency 0, IRQ 28
+        I/O ports at ec00 [size=256]
+        Memory at fdfff000 (64-bit, prefetchable) [size=4K]
+        Memory at fdff8000 (64-bit, prefetchable) [size=16K]
+        Expansion ROM at febe0000 [disabled] [size=128K]
+        Capabilities: [40] Power Management version 3
+        Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
+        Capabilities: [70] Express Endpoint, MSI 01
+        Capabilities: [ac] MSI-X: Enable- Count=4 Masked-
+        Capabilities: [cc] Vital Product Data
+        Capabilities: [100] Advanced Error Reporting
+        Capabilities: [140] Virtual Channel
+        Capabilities: [160] Device Serial Number 01-00-00-00-68-4c-e0-00
+        Kernel driver in use: r8168
+
