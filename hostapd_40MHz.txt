@@ -1,0 +1,38 @@
+# get hostapd source code
+sudo apt-get update
+apt-get source hostapd
+apt-get build-dep hostapd
+
+# patch the 40MHz check
+cd wpa-2.1
+find and comment below code in src/ap/hw_features.c
+```
+        if (!oper40) {
+                wpa_printf(MSG_INFO, "20/40 MHz operation not permitted on "
+                           "channel pri=%d sec=%d based on overlapping BSSes",
+                           iface->conf->channel,
+                           iface->conf->channel +
+                           iface->conf->secondary_channel * 4);
+                iface->conf->secondary_channel = 0;
+        }
+```
+also can be more verbose if adding below
+```
+        wpa_printf(MSG_INFO, "Force 20/40 MHz operation on "
+                   "channel pri=%d sec=%d based on overlapping BSSes",
+                   iface->conf->channel,
+                   iface->conf->channel +
+                   iface->conf->secondary_channel * 4);
+```
+
+# build the package
+fakeroot debian/rules binary
+
+# install the package
+There will be three .deb files in the same place as wpa-2.1.
+hostapd_2.1-0ubuntu7.3_i386.deb
+wpagui_2.1-0ubuntu7.3_i386.deb
+wpasupplicant_2.1-0ubuntu7.3_i386.deb
+
+we only need to install the hostapd for this case.
+sudo dpkg -i hostapd_2.1-0ubuntu7.3_i386.deb
