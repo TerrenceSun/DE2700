@@ -1,5 +1,5 @@
 ### 1. enable IP forwarding ###
-enable below lines
+enable below lines in /etc/sysctl.conf
 ```
 net.ipv4.ip_forward=1
 net.ipv4.tcp_syncookies=1
@@ -7,7 +7,15 @@ net.ipv4.conf.all.accept_source_route=0
 #added for packet loss
 net.ipv4.tcp_frto=1
 net.ipv4.tcp_low_latency=1
+#for better performance
+net.ipv4.ip_local_port_range = 15000 61000
+net.ipv4.tcp_fin_timeout = 25
+net.ipv4.tcp_tw_recycle = 0
+net.ipv4.tcp_tw_reuse = 1
+net.ipv4.tcp_orphan_retries = 1
+net.ipv4.tcp_max_orphans = 8192
 ```
+sudo sysctl -p /etc/sysctl.conf
 
 ### 2. install dnsmasq ###
 sudo apt-get install dnsmasq
