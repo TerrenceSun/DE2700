@@ -237,3 +237,10 @@ add UDP port 1900, TCP port specified in /etc/miniupnpd/miniupnpd.conf to iptabl
 sudo iptables -A INPUT -s 192.168.2.0/24 -i br0 -p udp -m multiport --dports 1900 -j ACCEPT
 sudo iptables -A INPUT -s 192.168.2.0/24 -i br0 -p tcp -m multiport --dports 1088,6600:6699,5300 -j ACCEPT
 
+
+### 9. settings for grub ###
+add below to /etc/default/grub
+```
+GRUB_RECORDFAIL_TIMEOUT=2
+```
+sudo update-grub2
